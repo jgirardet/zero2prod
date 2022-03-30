@@ -15,12 +15,16 @@ pub struct DatabaseSettings {
 
 impl DatabaseSettings {
     pub fn connection_string(&self) -> String {
-        let ff = format!(
+        format!(
             "postgres://{}:{}@{}:{}/{}",
             self.username, self.password, self.host, self.port, self.database_name
-        );
-        println!("{}", &ff);
-        ff
+        )
+    }
+    pub fn connection_string_nodb(&self) -> String {
+        format!(
+            "postgres://{}:{}@{}:{}/",
+            self.username, self.password, self.host, self.port,
+        )
     }
 }
 

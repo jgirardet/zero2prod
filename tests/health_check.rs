@@ -1,15 +1,46 @@
-use sqlx::{query, Connection, PgConnection};
+use sqlx::{query, Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use zero2prod::configuration::get_configuration;
+use zero2prod::configuration::{get_configuration, DatabaseSettings};
 
-fn spawn_app() -> String {
+struct TestApp {
+    pub address: String,
+    pub db_pool: PgPool,
+}
+
+async fn spawn_app() -> TestApp {
     let listener =
         TcpListener::bind("127.0.0.1:0").expect("impossible de trouver un port au client de test");
     let port = listener.local_addr().unwrap().port();
     let address = listener.local_addr().unwrap().ip();
-    let server = zero2prod::run(listener).expect("run le sspwn faked");
+    let mut db_settings = get_configuration().expect("get config").database;
+    let db_name = uuid::Uuid::new_v4();
+    db_settings.database_name = db_name.to_string();
+    let pg_pool = configure_database(&db_settings).await;
+    let server = zero2prod::startup::run(listener, pg_pool.clone()).expect("run le sspwn faked");
     let _ = tokio::spawn(server);
-    format!("http://{}:{}", address, port)
+    TestApp {
+        address: format!("http://{}:{}", address, port),
+        db_pool: pg_pool,
+    }
+}
+
+async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    PgConnection::connect(&config.connection_string_nodb())
+        .await
+        .expect("Echec de connection à Postgre")
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("Echec de création de la bdd de test");
+
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("Echec de création du pool");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Echec des migrations.");
+
+    connection_pool
 }
 
 #[test]
@@ -26,8 +57,8 @@ fn test_config() {
 
 #[tokio::test]
 async fn health_check_works() {
-    let address = spawn_app();
-    let url = format!("{}/health_check", address);
+    let app = spawn_app().await;
+    let url = format!("{}/health_check", app.address);
     let client = reqwest::Client::new();
     println!("{}", &url);
     let response = client
@@ -42,17 +73,11 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_a_201_for_valid_form_data() {
-    let app_address = spawn_app();
-    let configuration =
-        zero2prod::configuration::get_configuration().expect("Erreur pour obtenir la config");
-    let connect_string = configuration.database.connection_string();
-    let mut connection = PgConnection::connect(&connect_string)
-        .await
-        .expect("failed to connect to posgres");
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let body = "name=le%20guin&email=le%40mail.fr";
     let response = client
-        .post(format!("{}/subscriptions", app_address))
+        .post(format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -61,15 +86,16 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
     assert_eq!(201, response.status().as_u16());
 
     let res = query!("SELECT email, name from subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(&app.db_pool)
         .await
         .expect("Fail retrive in db");
-    assert_eq!(res.email, "ma@fz.fr")
+    assert_eq!(res.email, "le@mail.fr");
+    assert_eq!(res.name, "le guin");
 }
 
 #[tokio::test]
 async fn subscribe_returns_a_400_for_data_missing() {
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let cases = vec![
         ("name=le%20guin", "missing the email"),
@@ -78,12 +104,12 @@ async fn subscribe_returns_a_400_for_data_missing() {
     ];
     for (body, erreur) in cases {
         let response = client
-            .post(format!("{}/subscriptions", app_address))
+            .post(format!("{}/subscriptions", app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
             .await
-            .expect("La requête a échoué");
+            .expect(&format!("La requête a échoué  : {}", erreur));
         assert_eq!(400, response.status().as_u16());
         // assert_eq!(response.text().await.unwrap(), erreur);
     }
