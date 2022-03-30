@@ -1,5 +1,4 @@
 use actix_web::{post, web, HttpResponse, Responder};
-use chrono::Utc;
 use sqlx::{query, PgPool};
 use uuid::Uuid;
 #[derive(serde::Deserialize)]
@@ -18,7 +17,7 @@ async fn subscribe(form: web::Form<FormData>, connection: web::Data<PgPool>) -> 
         Uuid::new_v4(),
         form.email,
         form.name,
-        Utc::now()
+        sqlx::types::time::OffsetDateTime::now_utc()
     )
     .execute(connection.get_ref())
     .await
