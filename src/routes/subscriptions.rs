@@ -12,12 +12,12 @@ async fn subscribe(form: web::Form<FormData>, connection: web::Data<PgPool>) -> 
     match query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
-        VALUES ($1, $2,$3,$4)
-    "#,
+        VALUES ($1, $2, $3, $4)
+        "#,
         Uuid::new_v4(),
         form.email,
         form.name,
-        sqlx::types::time::OffsetDateTime::now_utc()
+        chrono::Utc::now()
     )
     .execute(connection.get_ref())
     .await

@@ -18,11 +18,9 @@ sqlx = {version = "0.5.11", default-features = false, features = [
   "macros",
   "postgres",
   "uuid",
-"time",
-#   "chrono",
+  "chrono",
   "migrate",
 ]}
-time = "0.3.9"
 tokio = {version = "1.17.0", features = ["macros", "rt-multi-thread"]}
 uuid = {version = "0.8.2", features = ["v4"]}
 
