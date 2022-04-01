@@ -1,26 +1,40 @@
 use actix_web::{post, web, HttpResponse, Responder};
 use sqlx::{query, PgPool};
-use tracing::Instrument;
 use uuid::Uuid;
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 struct FormData {
     name: String,
     email: String,
 }
-
+#[tracing::instrument(
+  name = "Adding new subscriber",
+  skip(form, pool),
+  fields(
+      %form.email,
+      %form.name
+  ) 
+)]
 #[post("/subscriptions")]
 async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
-    let request_id = uuid::Uuid::new_v4();
-    let request_span = tracing::info_span!(
-        "Adding new subseriber",
-        %request_id,
-        %form.name,
-        %form.email
-    );
-    let _request_span_gard = request_span.enter();
+match insert_subscriber(&form, &pool).await
+    {
+        Ok(_) => {
+            HttpResponse::Created().finish()
+        }
+        Err(_) => {
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
 
-    let query_span = tracing::info_span!("ENregistrment en ddb en cours");
-    match query!(
+// #[tracing::instrument(
+//     name="Insertion en ddb",
+//     skip(form, pool),
+// )]
+#[tracing::instrument]
+async fn insert_subscriber(form: &FormData, pool: &PgPool) -> Result<(), sqlx::Error> {
+    
+    query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -30,17 +44,8 @@ async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl R
         form.name,
         chrono::Utc::now()
     )
-    .execute(pool.as_ref())
-    .instrument(query_span)
+    .execute(pool)
     .await
-    {
-        Ok(_) => {
-            tracing::info!("nouveau subscriber enregistré");
-            HttpResponse::Created().finish()
-        }
-        Err(e) => {
-            tracing::error!("fail to execute query: {:?}", e);
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    .map_err(|e| {tracing::error!("Failed to execute query: {:?}", e); e})?;
+    Ok(())
 }

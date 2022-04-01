@@ -1,13 +1,27 @@
+use once_cell::sync::Lazy;
+use secrecy::ExposeSecret;
 use sqlx::{query, Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
 }
 
+static TRACING: Lazy<()> = Lazy::new(|| {
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber("test".into(), "debug".into(), std::io::stdout);
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_subscriber("test".into(), "debug".into(), std::io::sink);
+        init_subscriber(subscriber);
+    };
+});
+
 async fn spawn_app() -> TestApp {
+    Lazy::force(&TRACING);
     let listener =
         TcpListener::bind("127.0.0.1:0").expect("impossible de trouver un port au client de test");
     let port = listener.local_addr().unwrap().port();
@@ -25,14 +39,14 @@ async fn spawn_app() -> TestApp {
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    PgConnection::connect(&config.connection_string_nodb())
+    PgConnection::connect(&config.connection_string_nodb().expose_secret())
         .await
         .expect("Echec de connection à Postgre")
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Echec de création de la bdd de test");
 
-    let connection_pool = PgPool::connect(&config.connection_string())
+    let connection_pool = PgPool::connect(&config.connection_string().expose_secret())
         .await
         .expect("Echec de création du pool");
     sqlx::migrate!("./migrations")
@@ -50,7 +64,7 @@ fn test_config() {
         .database
         .connection_string();
     assert_eq!(
-        conf,
+        *conf.expose_secret(),
         "postgres://postgres:password@127.0.0.1:5432/newsletter".to_string()
     );
 }
