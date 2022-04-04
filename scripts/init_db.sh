@@ -59,3 +59,4 @@ sqlx migrate run
 #  DATABASE_URL needed by sqlx  ==> export DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/newsletter
 # disable docker ==>  SKIP_DOCKER=true ./scripts/init_db.sh
 # token dop_v1_2ba5c6bbfa349c01ab31321cb0e837dffd4d20dd12408835c43a76688aa006a7
+# app id b367450a-1de1-4056-b1ff-e82cb1aa8144

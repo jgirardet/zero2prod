@@ -39,14 +39,14 @@ async fn spawn_app() -> TestApp {
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    PgConnection::connect(&config.connection_string_nodb().expose_secret())
+    PgConnection::connect_with(&config.without_db())
         .await
         .expect("Echec de connection à Postgre")
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Echec de création de la bdd de test");
 
-    let connection_pool = PgPool::connect(&config.connection_string().expose_secret())
+    let connection_pool = PgPool::connect_with(config.with_db())
         .await
         .expect("Echec de création du pool");
     sqlx::migrate!("./migrations")
@@ -55,18 +55,6 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Echec des migrations.");
 
     connection_pool
-}
-
-#[test]
-fn test_config() {
-    let conf = get_configuration()
-        .expect("config fail")
-        .database
-        .connection_string();
-    assert_eq!(
-        *conf.expose_secret(),
-        "postgres://postgres:password@127.0.0.1:5432/newsletter".to_string()
-    );
 }
 
 #[tokio::test]
