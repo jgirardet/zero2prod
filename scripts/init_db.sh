@@ -33,8 +33,13 @@ then
     -e POSTGRES_PASSWORD=${DB_PASSWORD} \
     -e POSTGRES_DB=${DB_NAME} \
     -p "${DB_PORT}":5432 \
-    -d postgres \
-    postgres -N 1000
+    --net zero \
+    --name zerodb \
+    --rm \
+    -d \
+    postgres \
+    -N 1000 
+    # --net zero2prod.net
     # ^ Increased maximum number of connections for testing purposes
 fi
 
@@ -53,3 +58,4 @@ sqlx migrate run
 #Notes:
 #  DATABASE_URL needed by sqlx  ==> export DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/newsletter
 # disable docker ==>  SKIP_DOCKER=true ./scripts/init_db.sh
+# token dop_v1_2ba5c6bbfa349c01ab31321cb0e837dffd4d20dd12408835c43a76688aa006a7

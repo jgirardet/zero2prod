@@ -1,12 +1,24 @@
 use secrecy::{ExposeSecret, Secret};
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct Settings {
     pub database: DatabaseSettings,
-    pub application_port: u16,
+    pub application: ApplicationSettings,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
+pub struct ApplicationSettings {
+    host: String,
+    port: u16,
+}
+
+impl ApplicationSettings {
+    pub fn connection_string(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+}
+
+#[derive(serde::Deserialize, Debug)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
@@ -38,8 +50,46 @@ impl DatabaseSettings {
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    config::Config::builder()
-        .add_source(config::File::with_name("configuration"))
+    let builder = config::Config::builder();
+    let base_path = std::env::current_dir().expect("Current Directory non found");
+    let config_dir = base_path.join("configuration");
+    let environment: Environment = std::env::var("APP_ENVIRONMENT")
+        .unwrap_or("local".to_string())
+        .try_into()
+        .expect("Failed to parse environment APP_ENVIRONMENT");
+    builder
+        .add_source(config::File::from(config_dir.join("base")).required(true))
+        .add_source(config::File::from(config_dir.join(environment.as_str())).required(true))
         .build()?
         .try_deserialize()
+}
+
+#[derive(Debug)]
+pub enum Environment {
+    Local,
+    Production,
+}
+
+impl Environment {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Environment::Local => "local",
+            Environment::Production => "production",
+        }
+    }
+}
+
+impl TryFrom<String> for Environment {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.to_lowercase().as_str() {
+            "local" => Ok(Environment::Local),
+            "production" => Ok(Environment::Production),
+            x => Err(format!(
+                "{} is not valid. Environnement must be local or production",
+                x
+            )),
+        }
+    }
 }
