@@ -5,15 +5,9 @@ use crate::helpers::spawn_app;
 #[tokio::test]
 async fn subscribe_returns_a_201_for_valid_form_data() {
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
     let body = "name=le%20guin&email=le%40mail.fr";
-    let response = client
-        .post(format!("{}/subscriptions", app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("La requête a échoué");
+
+    let response = app.post_subscription(body.to_string()).await;
     assert_eq!(201, response.status().as_u16());
 
     let res = query!("SELECT email, name from subscriptions",)
@@ -25,9 +19,8 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
 }
 
 #[tokio::test]
-async fn subscribe_returns_a_400_for_data_missing() {
+async fn subscribe_returns_a_400_for_data_missing_or_invalid() {
     let app = crate::helpers::spawn_app().await;
-    let client = reqwest::Client::new();
     let cases = vec![
         ("name=le%20guin", "missing the email"),
         ("email=le%40mail.fr", "missing the name"),
@@ -37,14 +30,14 @@ async fn subscribe_returns_a_400_for_data_missing() {
         ("name=ursulat&email=not-an-email", "name empty"),
     ];
     for (body, erreur) in cases {
-        let response = client
-            .post(format!("{}/subscriptions", app.address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-            .expect(&format!("La requête a échoué  : {}", erreur));
-        assert_eq!(400, response.status().as_u16(), "Erreur avec {}", body);
+        let response = app.post_subscription(body.into()).await;
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "Erreur {} avec {}",
+            erreur,
+            body
+        );
         // assert_eq!(response.text().await.unwrap(), erreur);
     }
 }
