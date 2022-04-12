@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::{
@@ -5,13 +7,16 @@ use sqlx::{
     ConnectOptions,
 };
 
-#[derive(serde::Deserialize, Debug)]
+use crate::domain::SubscriberEmail;
+
+#[derive(serde::Deserialize, Clone, Debug)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Clone, Debug)]
 pub struct ApplicationSettings {
     pub host: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -24,7 +29,7 @@ impl ApplicationSettings {
     }
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Clone, Debug)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
@@ -57,9 +62,25 @@ impl DatabaseSettings {
     }
 }
 
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+    pub authorization_token: Secret<String>,
+    pub timeout_ms: u64,
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
+    pub fn timeout(&self) -> Duration {
+        Duration::from_millis(self.timeout_ms)
+    }
+}
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let builder = config::Config::builder();
-    let base_path = std::env::current_dir().expect("Current Directory non found");
+    let base_path = std::env::current_dir().expect("Curdrent Directory non found");
     let config_dir = base_path.join("configuration");
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or("local".to_string())

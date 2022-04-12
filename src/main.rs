@@ -1,13 +1,9 @@
-use secrecy::ExposeSecret;
-use sqlx::postgres::PgPoolOptions;
-use std::net::TcpListener;
 use zero2prod::{
     configuration::get_configuration,
-    startup::run,
+    startup::Application,
     telemetry::{get_subscriber, init_subscriber},
 };
 #[tokio::main]
-
 async fn main() -> std::io::Result<()> {
     // Redirect all `log`'s events to our subscriber
     init_subscriber(get_subscriber(
@@ -19,13 +15,9 @@ async fn main() -> std::io::Result<()> {
     //configuration + database
     let configuration = get_configuration().expect("Failed to read configuration, désolé");
 
-    dbg!(&configuration);
-    let connection_pool = PgPoolOptions::new()
-        .connect_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.database.with_db());
-
-    // tcp
-    let listener = TcpListener::bind(configuration.application.connection_string())
-        .expect("Le port n'est pas libre");
-    run(listener, connection_pool)?.await
+    Application::build(configuration)
+        .await?
+        .run_until_stopped()
+        .await?;
+    Ok(())
 }
