@@ -1,7 +1,7 @@
 use std::net::TcpListener;
 
 use crate::{
-    configuration::{self, DatabaseSettings, Settings},
+    configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
     routes::{health_check, subscribe},
 };

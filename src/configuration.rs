@@ -52,7 +52,7 @@ impl DatabaseSettings {
             .host(&self.host)
             .port(self.port)
             .username(&self.username)
-            .password(&self.password.expose_secret())
+            .password(self.password.expose_secret())
             .ssl_mode(ssl_mode)
     }
     pub fn with_db(&self) -> PgConnectOptions {
@@ -83,7 +83,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Curdrent Directory non found");
     let config_dir = base_path.join("configuration");
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
-        .unwrap_or("local".to_string())
+        .unwrap_or_else(|_| "local".to_string())
         .try_into()
         .expect("Failed to parse environment APP_ENVIRONMENT");
     builder
