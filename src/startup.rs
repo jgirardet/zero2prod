@@ -1,9 +1,9 @@
-use std::net::TcpListener;
+use std::{fmt::Display, net::TcpListener};
 
 use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
-    routes::{health_check, subscribe},
+    routes::{confirm, health_check, subscribe},
 };
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
@@ -13,17 +13,21 @@ pub fn run(
     listener: TcpListener,
     connection: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> std::io::Result<Server> {
     let db_pool = web::Data::new(connection);
     let email_client = web::Data::new(email_client);
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url));
     let server = HttpServer::new(
         move || {
             App::new()
                 .wrap(TracingLogger::default())
                 .service(health_check)
                 .service(subscribe)
+                .service(confirm)
                 .app_data(db_pool.clone())
                 .app_data(email_client.clone())
+                .app_data(base_url.clone())
         }, // .route("/health_check", web::get().to(health_check))
     )
     .listen(listener)?
@@ -37,10 +41,19 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
         .connect_lazy_with(configuration.with_db())
 }
 
+#[derive(Debug)]
+pub struct ApplicationBaseUrl(String);
+impl Display for ApplicationBaseUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)?;
+        Ok(())
+    }
+}
 pub struct Application {
     port: u16,
     server: Server,
 }
+
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         let connection_pool = get_connection_pool(&configuration.database);
@@ -60,7 +73,12 @@ impl Application {
         );
         let listener = TcpListener::bind(&address)?;
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            configuration.application.base_url,
+        )?;
         // We "save" the bound port in one of `Application`'s fields
         Ok(Self { port, server })
     }

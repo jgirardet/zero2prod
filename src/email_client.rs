@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::domain::SubscriberEmail;
 
+#[derive(Debug)]
 pub struct EmailClient {
     http_client: Client,
     base_url: String,
