@@ -22,7 +22,48 @@ impl TestApp {
             .await
             .expect("FAiled to execute request in test APP")
     }
+
+    pub async fn get_confirmation_links(
+        &self,
+        email_request: &wiremock::Request,
+    ) -> ConfirmationLinks {
+        let mut links = ConfirmationLinks::from_request(email_request);
+        links.set_port(self.port);
+        links
+    }
 }
+
+#[derive(Debug)]
+pub struct ConfirmationLinks {
+    pub html: reqwest::Url,
+    pub plain_text: reqwest::Url,
+}
+
+impl ConfirmationLinks {
+    pub fn from_request(request: &wiremock::Request) -> Self {
+        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+        let get_links = |s: &str| {
+            let links = linkify::LinkFinder::new()
+                .links(s)
+                .filter(|x| *x.kind() == linkify::LinkKind::Url)
+                .collect::<Vec<_>>();
+            assert_eq!(links.len(), 1);
+            links[0].as_str().to_owned()
+        };
+        let html = reqwest::Url::parse(&get_links(&body["HtmlBody"].as_str().unwrap())).unwrap();
+        let plain_text =
+            reqwest::Url::parse(&get_links(&body["TextBody"].as_str().unwrap())).unwrap();
+
+        Self { html, plain_text }
+    }
+    pub fn set_port(&mut self, port: u16) {
+        self.html.set_port(Some(port)).expect("Failed to set port");
+        self.plain_text
+            .set_port(Some(port))
+            .expect("Failed to set port");
+    }
+}
+
 static TRACING: Lazy<()> = Lazy::new(|| {
     if std::env::var("TEST_LOG").is_ok() {
         let subscriber = get_subscriber("test".into(), "debug".into(), std::io::stdout);
