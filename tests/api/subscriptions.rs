@@ -92,3 +92,15 @@ async fn subscribe_sends_email_with_a_link() {
     let links = app.get_confirmation_links(&email_request).await;
     assert_eq!(links.html, links.plain_text);
 }
+
+#[tokio::test]
+async fn subscibre_filas_if_there_is_a_fatal_database_error() {
+    let app = spawn_app().await;
+    let body = "name=fez&email=fez@fe.gt";
+    sqlx::query!("ALTER TABLE subscriptions DROP COLUMN email;",)
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+    let response = app.post_subscription(body.into()).await;
+    assert_eq!(response.status().as_u16(), 500);
+}
