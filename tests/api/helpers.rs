@@ -1,6 +1,9 @@
+use std::ops::Range;
+
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use wiremock::MockServer;
+use wiremock::matchers::{any, method, AnyMatcher};
+use wiremock::{Mock, MockServer, ResponseTemplate, Times};
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
@@ -30,6 +33,30 @@ impl TestApp {
         let mut links = ConfirmationLinks::from_request(email_request);
         links.set_port(self.port);
         links
+    }
+
+    pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(&format!("{}/newsletters", self.address))
+            .json(&body)
+            .send()
+            .await
+            .expect("request failed")
+    }
+
+    pub async fn mock_mail_server<T: Into<Times>>(&self, meth: &str, code: u16, exp: T) {
+        let meth = match meth {
+            "g" => "GET",
+            "p" => "POST",
+            _ => "GET",
+        };
+        // let exp: Times = exp.into();
+        Mock::given(any())
+            .and(method(meth))
+            .respond_with(ResponseTemplate::new(code))
+            .expect(exp.into())
+            .mount(&self.email_server)
+            .await
     }
 }
 
@@ -122,3 +149,73 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
     connection_pool
 }
+
+pub async fn mock_mail_server<G>(
+    app: &TestApp,
+    given: Option<G>,
+    meth: Option<&str>,
+    code: Option<u16>,
+    expect: Option<u64>,
+) where
+    G: 'static + wiremock::Match,
+{
+    let meth = match meth {
+        Some("p") => "POST",
+        _ => "GET",
+    };
+    let code = code.unwrap_or(200);
+
+    let mock = match given {
+        Some(g) => Mock::given(g),
+        None => Mock::given(any()),
+    };
+
+    let mock = mock
+        .and(method(meth))
+        .respond_with(ResponseTemplate::new(code));
+
+    let mock = match expect {
+        Some(x) => {
+            let nb: Times = x.into();
+            mock.expect(nb)
+        }
+        None => mock,
+    };
+    // let mock = match expect {
+    //     x if x < 0 => mock,
+    //     x => {
+    //         let nb: u64 = x.try_into().unwrap();
+    //         let times: Times = nb.into();
+    //         mock.expect(times)
+    //     }
+    // };
+
+    mock.mount(&app.email_server).await;
+}
+
+// #[macro_export]
+// macro_rules! mockmail {
+//     // par défaut: any get 200
+//     // ($app:ident) => {
+//     //     crate::helpers::mock_mail_server(&$app, None, None, None, None)
+//     // }
+//     // ($app:ident) => {};
+//     ($app:ident  $(g=$given:expr)? , $(m=$m:literal)?) => {
+//         let pp = wiremock::matchers::AnyMatcher;
+//         $(let pp= &$given;)?
+//         let method = wiremock::matchers::method("GET");
+//         $(let method=wiremock::matchers::method($m);)?
+//         dbg!(&pp, method);
+//     };
+//     ($app:ident,$meth:expr,$code:literal) => {
+//         // ($app:ident,$meth:expr,$code:literal) => {
+//         crate::helpers::mock_mail_server(
+//             &$app,
+//             Some(wiremock::matchers::AnyMatcher),
+//             Some($meth),
+//             Some($code),
+//             None,
+//         )
+//         .await
+//     };
+// }
