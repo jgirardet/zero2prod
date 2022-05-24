@@ -27,7 +27,7 @@ struct SendEmailRequest<'a> {
 impl EmailClient {
     pub async fn send_mail(
         &self,
-        recipient: SubscriberEmail,
+        recipient: &SubscriberEmail,
         subject: &str,
         html_content: &str,
         text_content: &str,
@@ -135,7 +135,7 @@ mod tests_email_client {
             .await;
 
         let _ = email_client
-            .send_mail(email(), &subject(), &content(), &content())
+            .send_mail(&email(), &subject(), &content(), &content())
             .await;
     }
 
@@ -151,7 +151,7 @@ mod tests_email_client {
             .await;
 
         let outcome = email_client
-            .send_mail(email(), &subject(), &content(), &content())
+            .send_mail(&email(), &subject(), &content(), &content())
             .await;
 
         assert_ok!(outcome);
@@ -169,7 +169,7 @@ mod tests_email_client {
             .await;
 
         let outcome = email_client
-            .send_mail(email(), &subject(), &content(), &content())
+            .send_mail(&email(), &subject(), &content(), &content())
             .await;
         assert_err!(outcome);
     }
@@ -186,7 +186,7 @@ mod tests_email_client {
             .await;
 
         let outcome = email_client
-            .send_mail(email(), &subject(), &content(), &content())
+            .send_mail(&email(), &subject(), &content(), &content())
             .await;
 
         assert_err!(outcome);
