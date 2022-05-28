@@ -15,6 +15,8 @@ if ! [ -x "$(command -v sqlx)" ]; then
     exit 1
 fi
 
+docker stop zerodb
+
 # Check if a custom user has been set, otherwise default to 'postgres'
 DB_USER=${POSTGRES_USER:=postgres}
 # Check if a custom password has been set, otherwise default to 'password'

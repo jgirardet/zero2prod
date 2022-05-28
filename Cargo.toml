@@ -11,13 +11,16 @@ path = "src/lib.rs"
 [dependencies]
 actix-web = "4"
 anyhow = "1.0.56"
+argon2 = {version = "0.4.0", features = ["std"]}
+base64 = "0.13.0"
 chrono = "0.4.19"
 config = "0.13.0"
-rand = { version = "0.8.5", features = ["std_rng"] }
+rand = {version = "0.8.5", features = ["std_rng"]}
 reqwest = {version = "0.11.10", features = ["json", "rustls-tls"], default-features = false}
 secrecy = {version = "0.8.0", features = ["serde"]}
 serde = {version = "1.0.136", features = ["derive"]}
 serde-aux = "3.0.1"
+sha3 = "0.10.1"
 sqlx = {version = "0.5.11", default-features = false, features = [
   "offline",
   "runtime-actix-rustls",
@@ -47,5 +50,5 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 rand = "0.8.5"
 serde_json = "1.0.79"
-tokio = { version = "1.17.0", features = ["rt", "macros"] }
+tokio = {version = "1.17.0", features = ["rt", "macros"]}
 wiremock = "0.5.12"
