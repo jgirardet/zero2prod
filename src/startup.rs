@@ -3,7 +3,7 @@ use std::{fmt::Display, net::TcpListener};
 use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
-    routes::{confirm, health_check, publish_newsletter, subscribe},
+    routes::{confirm, health_check, home, login, login_form, publish_newsletter, subscribe},
 };
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
@@ -26,6 +26,9 @@ pub fn run(
                 .service(subscribe)
                 .service(confirm)
                 .service(publish_newsletter)
+                .service(home)
+                .service(login_form)
+                .service(login)
                 .app_data(db_pool.clone())
                 .app_data(email_client.clone())
                 .app_data(base_url.clone())
