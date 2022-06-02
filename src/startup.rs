@@ -5,7 +5,9 @@ use crate::{
     email_client::EmailClient,
     routes::{confirm, health_check, home, login, login_form, publish_newsletter, subscribe},
 };
-use actix_web::{dev::Server, web, App, HttpServer};
+use actix_web::{cookie::Key, dev::Server, web, App, HttpServer};
+use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramework};
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tracing_actix_web::TracingLogger;
 
@@ -14,13 +16,19 @@ pub fn run(
     connection: PgPool,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: Secret<String>,
 ) -> std::io::Result<Server> {
     let db_pool = web::Data::new(connection);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    // let hmac_secret = web::Data::new(HmacSecret(hmac_secret));
+    let message_store =
+        CookieMessageStore::builder(Key::from(hmac_secret.expose_secret().as_bytes())).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
     let server = HttpServer::new(
         move || {
             App::new()
+                .wrap(message_framework.clone())
                 .wrap(TracingLogger::default())
                 .service(health_check)
                 .service(subscribe)
@@ -32,6 +40,7 @@ pub fn run(
                 .app_data(db_pool.clone())
                 .app_data(email_client.clone())
                 .app_data(base_url.clone())
+            // .app_data(hmac_secret.clone())
         }, // .route("/health_check", web::get().to(health_check))
     )
     .listen(listener)?
@@ -82,6 +91,7 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url,
+            configuration.application.hmac_secret,
         )?;
         // We "save" the bound port in one of `Application`'s fields
         Ok(Self { port, server })
@@ -95,3 +105,6 @@ impl Application {
         self.server.await
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct HmacSecret(pub Secret<String>);

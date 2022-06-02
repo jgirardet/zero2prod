@@ -10,13 +10,16 @@ path = "src/lib.rs"
 
 [dependencies]
 actix-web = "4"
+actix-web-flash-messages = { version = "0.3.2", features = ["cookies"] }
 anyhow = "1.0.56"
 argon2 = {version = "0.4.0", features = ["std"]}
 base64 = "0.13.0"
 chrono = "0.4.19"
 config = "0.13.0"
+hex = "0.4.3"
+htmlescape = "0.3.1"
 rand = {version = "0.8.5", features = ["std_rng"]}
-reqwest = {version = "0.11.10", features = ["json", "rustls-tls"], default-features = false}
+reqwest = {version = "0.11.10", features = ["json", "rustls-tls", "cookies"], default-features = false}
 secrecy = {version = "0.8.0", features = ["serde"]}
 serde = {version = "1.0.136", features = ["derive"]}
 serde-aux = "3.0.1"
@@ -30,6 +33,7 @@ sqlx = {version = "0.5.11", default-features = false, features = [
   "chrono",
   "migrate",
 ]}
+tera = "1.15.0"
 thiserror = "1.0.30"
 tokio = {version = "1.17.0", features = ["macros", "rt-multi-thread"]}
 tracing = {version = "0.1.32", features = ["log"]}
@@ -38,6 +42,7 @@ tracing-bunyan-formatter = "0.3.2"
 tracing-log = "0.1.2"
 tracing-subscriber = {version = "0.3.9", features = ["std", "env-filter"]}
 unicode-segmentation = "1.9.0"
+urlencoding = "2.1.0"
 uuid = {version = "0.8.2", features = ["v4"]}
 validator = "0.14.0"
 

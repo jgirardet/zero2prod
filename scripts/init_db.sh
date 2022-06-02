@@ -15,7 +15,6 @@ if ! [ -x "$(command -v sqlx)" ]; then
     exit 1
 fi
 
-docker stop zerodb
 
 # Check if a custom user has been set, otherwise default to 'postgres'
 DB_USER=${POSTGRES_USER:=postgres}
@@ -40,7 +39,7 @@ then
     --rm \
     -d \
     postgres \
-    -N 1000 
+    -N 1000
     # --net zero2prod.net
     # ^ Increased maximum number of connections for testing purposes
 fi
